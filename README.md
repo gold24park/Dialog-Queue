@@ -17,3 +17,8 @@ ageResult.onSuccess { age ->
     )
 }
 ```
+
+# Article
+[안드로이드 - Dialog Queue 구현하기](https://jizard.tistory.com/519)
+
+![image2](/flow.jpg)
