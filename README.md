@@ -1,5 +1,6 @@
 # Dialog-Queue
 An impmentation of Dialog Queue in Android + Jetpack Compose
+
 ![image2](/chart.jpg)
 
 # Example
