@@ -1,9 +1,9 @@
 # Dialog-Queue
 An impmentation of Dialog Queue in Android + Jetpack Compose
-
-![image](/image.gif)
+![image2](/chart.jpg)
 
 # Example
+![image](/image.gif)
 ```kotlin
 val ageResult = dialogHandler.showDialogForResult(SelectAge)
 ageResult.onSuccess { age ->
@@ -21,4 +21,4 @@ ageResult.onSuccess { age ->
 # Article
 [안드로이드 - Dialog Queue 구현하기](https://jizard.tistory.com/519)
 
-![image2](/chart.jpg)
+
