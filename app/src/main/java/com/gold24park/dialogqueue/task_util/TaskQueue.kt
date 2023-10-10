@@ -55,9 +55,6 @@ class TaskQueue(
             }
 
             lifecycleOwner.lifecycleScope.launch {
-                Log.d(TAG, "process before delay: ${item.task.label}")
-                delay(1000)
-                Log.d(TAG, "process: ${item.task.label}")
                 item.process()
             }
         } catch (e: IllegalStateException) {
