@@ -22,7 +22,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
 import com.gold24park.dialogqueue.ui.theme.DialogQueueTheme
-import com.gold24park.dialogqueue.dialog_util.ConfirmAge
 import com.gold24park.dialogqueue.dialog_util.SelectAge
 import com.gold24park.dialogqueue.dialog_util.Text
 import com.gold24park.dialogqueue.task_util.Task
@@ -52,15 +51,15 @@ class MainActivity : BaseActivity() {
                         completable.complete(100)
                     }, runner = lifecycleScope)
 
-                    taskQueue.push(task1)
-                    taskQueue.push(task2)
+                    taskQueue.add(task1)
+                    taskQueue.add(task2)
                 }
 
                 LaunchedEffect(tryCnt) {
                     val task = Task<Int>(label = "get age", execute = { completable ->
-                        val ageResult = dialogQueue.pushForResult(SelectAge)
+                        val ageResult = dialogQueue.addForResult(SelectAge)
                         ageResult.onSuccess { age ->
-                            dialogQueue.pushForResult(
+                            dialogQueue.addForResult(
                                 Text,
                                 "Confirm user age: $age"
                             )
@@ -71,6 +70,7 @@ class MainActivity : BaseActivity() {
                             completable.completeExceptionally(Exception("failed to receive user age."))
                         }
                     }, runner = lifecycleScope)
+                    taskQueue.add(task)
                 }
 
                 Surface(

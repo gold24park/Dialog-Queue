@@ -42,7 +42,9 @@ class TaskQueue(
             val item = queue.poll()!!
 
             check(item.task.runner.isActive) {
-                "runner is not active for task: ${item.task.label}" // just consume this task
+                val message = "runner is not active for task: ${item.task.label}"
+                item.deferred.completeExceptionally(IllegalStateException(message))
+                message
             }
 
             processingTask = item.task
@@ -60,9 +62,9 @@ class TaskQueue(
         }
     }
 
-    suspend fun <T: Any?> pushForResult(task: Task<T>): Result<T> {
+    suspend fun <T: Any?> addForResult(task: Task<T>): Result<T> {
         val deferred = CompletableDeferred<T>()
-        queue.push(TaskQueueItem(
+        queue.add(TaskQueueItem(
             task = task,
             deferred = deferred,
         ))
@@ -72,9 +74,9 @@ class TaskQueue(
         }
     }
 
-    fun <T : Any?> push(task: Task<T>) {
+    fun <T : Any?> add(task: Task<T>) {
         val deferred = CompletableDeferred<T>()
-        queue.push(TaskQueueItem(
+        queue.add(TaskQueueItem(
             task = task,
             deferred = deferred,
         ))

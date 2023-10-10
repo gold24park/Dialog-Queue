@@ -69,14 +69,14 @@ class DialogQueue(
         }
     }
 
-    fun <Req, Res> push(
+    fun <Req, Res> add(
         builder: DialogBuilder<Req, Res>,
         req: Req,
     ) {
         process(builder = builder, req = req)
     }
 
-    suspend fun <Req, Res> pushForResult(
+    suspend fun <Req, Res> addForResult(
         builder: DialogBuilder<Req, Res>,
         req: Req,
     ): Result<Res> {
@@ -85,10 +85,10 @@ class DialogQueue(
         }
     }
 
-    suspend fun <Res> pushForResult(
+    suspend fun <Res> addForResult(
         builder: DialogBuilder<Unit, Res>,
     ): Result<Res> {
-        return pushForResult(builder, Unit)
+        return addForResult(builder, Unit)
     }
 
     private fun <Req, Res> process(
