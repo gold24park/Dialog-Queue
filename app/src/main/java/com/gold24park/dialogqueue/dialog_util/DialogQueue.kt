@@ -7,38 +7,23 @@ import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
-import java.util.PriorityQueue
-
-interface DialogQueue {
-    fun add(element: DialogQueueElement)
-
-    enum class Priority {
-        HIGH,
-        MEDIUM,
-        LOW,
-    }
-}
-
+import kotlinx.coroutines.CompletableDeferred
+import java.util.LinkedList
 data class DialogQueueElement(
-    val priority: DialogQueue.Priority,
     val tag: String,
     val dialogBuilder: (context: Context, dismiss: () -> Unit) -> QueueDialogFragment<*>,
-): Comparable<DialogQueueElement> {
-    override fun compareTo(other: DialogQueueElement): Int {
-        return priority.compareTo(other.priority)
-    }
-}
+)
 
-class DialogQueueImpl(
+class DialogQueue(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
     private val fragmentManager: FragmentManager,
-): DialogQueue {
+) {
 
     private var showingElement: DialogQueueElement? = null
 
     companion object {
-        private val queue = PriorityQueue<DialogQueueElement>()
+        private val queue = LinkedList<DialogQueueElement>()
         const val TAG = "DialogQueue"
     }
 
@@ -46,43 +31,26 @@ class DialogQueueImpl(
         lifecycleOwner.lifecycle.addObserver(object: LifecycleEventObserver {
             override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {
                 when (event) {
-                    Lifecycle.Event.ON_RESUME -> flush()
-                    Lifecycle.Event.ON_PAUSE -> {
-                        addFirst(showingElement)
-                        showingElement = null
-                    }
+                    Lifecycle.Event.ON_RESUME -> tryPoll()
                     else -> {}
                 }
             }
         })
     }
 
-    private fun addFirst(element: DialogQueueElement?) {
-        if (element != null) {
-            queue.offer(element.copy(
-                priority = maxOf(element.priority, DialogQueue.Priority.MEDIUM),
-            ))
-        }
-    }
-
-
-    override fun add(
-        element: DialogQueueElement,
-    ) {
-        queue.offer(element)
-        flush()
-        debug()
-    }
-
-    private fun flush() {
+    private fun tryPoll() {
         try {
-            debug()
-            check(queue.isNotEmpty())
+            Log.d(TAG, "log.queue: ${queue.map { it.tag }}")
+            Log.d(TAG, "log.showingElement: $showingElement")
+
+            check(queue.isNotEmpty()) {
+                "queue is empty."
+            }
             check(showingElement == null) {
                 "dialog is already showing."
             }
             check(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                "lifecycle must be resumed."
+                "lifecycle must be resumed: $context"
             }
 
             // show dialog
@@ -93,16 +61,60 @@ class DialogQueueImpl(
             val dialog = element.dialogBuilder(context) { // on dismiss
                 showingElement = null
                 (fragmentManager.findFragmentByTag(element.tag) as? DialogFragment)?.dismiss()
-                flush()
+                tryPoll()
             }
             dialog.show(fragmentManager, element.tag)
         } catch (e: IllegalStateException) {
-            Log.e(TAG, "failed to flush: $e")
+            Log.e(TAG, "failed to poll: $e")
         }
     }
 
-    private fun debug() {
-        Log.d(TAG, "log.queue: ${queue.map { it.tag }}")
-        Log.d(TAG, "log.showingElement: $showingElement")
+    fun <Req, Res> push(
+        builder: DialogBuilder<Req, Res>,
+        req: Req,
+    ) {
+        process(builder = builder, req = req)
+    }
+
+    suspend fun <Req, Res> pushForResult(
+        builder: DialogBuilder<Req, Res>,
+        req: Req,
+    ): Result<Res> {
+        return runCatching {
+            process(builder = builder, req = req).await()
+        }
+    }
+
+    suspend fun <Res> pushForResult(
+        builder: DialogBuilder<Unit, Res>,
+    ): Result<Res> {
+        return pushForResult(builder, Unit)
+    }
+
+    private fun <Req, Res> process(
+        builder: DialogBuilder<Req, Res>,
+        req: Req,
+    ): CompletableDeferred<Res> {
+        var deferred = CompletableDeferred<Res>()
+        val tag = "DialogHandler::${builder::class.java.simpleName}::${req}"
+        queue.add(
+            DialogQueueElement(
+                tag = tag,
+                dialogBuilder =  { context, dismiss ->
+                    Log.d(TAG, "$tag: ${deferred.isCompleted}")
+                    if (deferred.isCompleted) {
+                        deferred = CompletableDeferred()
+                    }
+                    deferred.invokeOnCompletion { dismiss() }
+                    builder.build(
+                        context = context,
+                        req = req,
+                        deferred = deferred,
+                    )
+                }
+            )
+        )
+        tryPoll()
+        return deferred
     }
 }

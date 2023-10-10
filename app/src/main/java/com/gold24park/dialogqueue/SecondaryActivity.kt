@@ -18,9 +18,7 @@ class SecondaryActivity : BaseActivity() {
             Column(modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Blue)) {
-                dialogHandler.showDialog(Text, "Normal message")
-                dialogHandler.showDialog(Text, "Important message!", priority = DialogQueue.Priority.HIGH)
-                finish()
+
             }
         }
     }

@@ -3,12 +3,10 @@ An impmentation of Dialog Queue in Android + Jetpack Compose
 
 ![image2](/chart.jpg)
 
-# Example
-![image](/image.gif)
 ```kotlin
-val ageResult = dialogHandler.showDialogForResult(SelectAge)
+val ageResult = dialogQueue.pushForResult(SelectAge)
 ageResult.onSuccess { age ->
-    dialogHandler.showDialog(
+    dialogQueue.push(
         ConfirmAge, ConfirmAge.Req(
             exp = age,
             onClickNavigate = {

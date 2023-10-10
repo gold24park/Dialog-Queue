@@ -11,6 +11,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,6 +22,8 @@ import androidx.compose.ui.platform.LocalContext
 import com.gold24park.dialogqueue.ui.theme.DialogQueueTheme
 import com.gold24park.dialogqueue.dialog_util.ConfirmAge
 import com.gold24park.dialogqueue.dialog_util.SelectAge
+import com.gold24park.dialogqueue.dialog_util.Text
+import com.gold24park.dialogqueue.task_util.Task
 
 class MainActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,20 +31,22 @@ class MainActivity : BaseActivity() {
         setContent {
             DialogQueueTheme {
                 val context = LocalContext.current
-                LaunchedEffect(Unit) {
-                    val ageResult = dialogHandler.showDialogForResult(SelectAge)
-                    ageResult.onSuccess { age ->
-                        Toast.makeText(context, "Age: $age", Toast.LENGTH_LONG).show()
-                        dialogHandler.showDialog(
-                            ConfirmAge, ConfirmAge.Req(
-                                exp = age,
-                                onClickNavigate = {
-                                    startActivity(Intent(context, SecondaryActivity::class.java))
-                                }
-                            ))
-                    }.onFailure {
-                        Toast.makeText(context, "failed to receive user age.", Toast.LENGTH_LONG).show()
-                    }
+                var tryCnt by remember { mutableStateOf(1) }
+                LaunchedEffect(tryCnt) {
+                    val task = Task<Int>(label = "get age", execute = { completable ->
+                        val ageResult = dialogQueue.pushForResult(SelectAge)
+                        ageResult.onSuccess { age ->
+                            dialogQueue.pushForResult(
+                                Text,
+                                "Confirm user age: $age"
+                            )
+                            completable.complete(age)
+                        }.onFailure {
+                            Toast.makeText(context, "failed to receive user age.", Toast.LENGTH_LONG).show()
+                            completable.completeExceptionally(Exception("failed to receive user age."))
+                        }
+                    })
+                    val age = taskQueue.push(task)
                 }
 
 
@@ -54,6 +62,17 @@ class MainActivity : BaseActivity() {
                                 startActivity(Intent(context, SecondaryActivity::class.java))
                             }) {
                                 Text("Secondary Activity")
+                            }
+                        }
+                    }
+                    Box(
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column {
+                            Button(onClick = {
+                                tryCnt++
+                            }) {
+                                Text("Inc++ try count: $tryCnt")
                             }
                         }
                     }
