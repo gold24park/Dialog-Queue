@@ -2,6 +2,7 @@ package com.gold24park.dialogqueue
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -19,19 +20,42 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.lifecycleScope
 import com.gold24park.dialogqueue.ui.theme.DialogQueueTheme
 import com.gold24park.dialogqueue.dialog_util.ConfirmAge
 import com.gold24park.dialogqueue.dialog_util.SelectAge
 import com.gold24park.dialogqueue.dialog_util.Text
 import com.gold24park.dialogqueue.task_util.Task
+import kotlinx.coroutines.GlobalScope
 
 class MainActivity : BaseActivity() {
+
+    private var secretNumber = 11234
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             DialogQueueTheme {
                 val context = LocalContext.current
                 var tryCnt by remember { mutableStateOf(1) }
+
+                LaunchedEffect(Unit) {
+                    val task1 = Task(label = "calculate", execute = { completable ->
+                        kotlinx.coroutines.delay(3000)
+                        Log.d("MainActivity", "calculate done! $secretNumber, runner is GlobalScope")
+                        completable.complete(100)
+                    }, runner = GlobalScope)
+
+                    val task2 = Task(label = "calculate", execute = { completable ->
+                        kotlinx.coroutines.delay(3000)
+                        Log.d("MainActivity", "calculate done! $secretNumber, runner is LifecycleScope")
+                        completable.complete(100)
+                    }, runner = lifecycleScope)
+
+                    taskQueue.push(task1)
+                    taskQueue.push(task2)
+                }
+
                 LaunchedEffect(tryCnt) {
                     val task = Task<Int>(label = "get age", execute = { completable ->
                         val ageResult = dialogQueue.pushForResult(SelectAge)
@@ -42,13 +66,12 @@ class MainActivity : BaseActivity() {
                             )
                             completable.complete(age)
                         }.onFailure {
-                            Toast.makeText(context, "failed to receive user age.", Toast.LENGTH_LONG).show()
+                            Log.d("MainActivity", it.message ?: "")
+                            Toast.makeText(context, "failed to receive user age", Toast.LENGTH_LONG).show()
                             completable.completeExceptionally(Exception("failed to receive user age."))
                         }
-                    })
-                    val age = taskQueue.push(task)
+                    }, runner = lifecycleScope)
                 }
-
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),

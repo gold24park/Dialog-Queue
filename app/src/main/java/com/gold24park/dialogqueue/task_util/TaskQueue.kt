@@ -4,20 +4,18 @@ import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.LinkedList
 
 class TaskQueue(
-    private val lifecycleOwner: LifecycleOwner,
+    lifecycleOwner: LifecycleOwner,
 ) {
     companion object {
-        var processingTask: Task<*>? = null
-        val queue = LinkedList<TaskQueueItem<*>>()
-        const val TAG = "TaskQueue"
+        private var processingTask: Task<*>? = null
+        private val queue = LinkedList<TaskQueueItem<*>>()
+        private const val TAG = "TaskQueue"
     }
 
     init {
@@ -41,20 +39,20 @@ class TaskQueue(
                 "there is already processing task: ${processingTask?.label}"
             }
 
-            check(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                "lifecycle must be resumed."
+            val item = queue.poll()!!
+
+            check(item.task.runner.isActive) {
+                "runner is not active for task: ${item.task.label}" // just consume this task
             }
 
-            val item = queue.poll()!!
             processingTask = item.task
 
             item.deferred.invokeOnCompletion {
-                Log.d(TAG, "invokeOnCompletion()")
                 processingTask = null
                 tryPoll()
             }
 
-            lifecycleOwner.lifecycleScope.launch {
+            item.task.runner.launch {
                 item.process()
             }
         } catch (e: IllegalStateException) {
@@ -83,8 +81,6 @@ class TaskQueue(
         tryPoll()
     }
 
-    private suspend fun <T: Any?> TaskQueueItem<T>.process() = withContext(task.coroutineDispatcher) {
-        task.execute(deferred)
-    }
+    private suspend fun <T: Any?> TaskQueueItem<T>.process() = task.execute(deferred)
 
 }
